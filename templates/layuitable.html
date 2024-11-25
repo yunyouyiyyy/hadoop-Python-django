@@ -1,0 +1,231 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>layui表格学习</title>
+    <link href="{% static 'layui/css/layui.css' %}" rel="stylesheet">
+</head>
+<body>
+    <p>layui表格学习</p>
+    <button data-method="notice" class="layui-btn" id="testopenlayer">登录</button>
+    <table class="layui-hide" id="test11" lay-filter="td_test"></table>
+<div id="layercontent" style="display: none; width: 90%; height: 100%;
+                        margin: 5px auto;">
+    <div style="width: 20%; float: left;line-height: 30px">
+        <span>用户名：</span>
+    </div>
+    <div style="width: 70%; float: left">
+        <input type="text" class="form-control" id="username">
+    </div>
+    <hr style="">
+    <div style="width: 20%; float: left;line-height: 30px" >
+        <span>密码：</span>
+    </div>
+    <div style="width: 70%; float: left">
+        <input type="password" class="form-control" id="pwd">
+    </div>
+    <hr style="">
+    <div style="width: 20%; float: left;line-height: 30px">
+        <span>验证码：</span>
+    </div>
+    <div style="width: 70%; float: left">
+        <input type="text" class="form-control" id="authcode">
+    </div>
+</div>
+<div id="delete_df" style="display: none;width: 90%;height: 100%;margin: 5px auto">
+    <div style="width: 80%; float: left; line-height: 30px">
+        <span>是否删除</span>
+    </div>
+    <hr>
+    <div style="width:90%; float: left">
+        <input class="layui-input" id="df_p" style="border: 0;color: red;font-size: 25px">
+    </div>
+</div>
+</body>
+
+<script type="text/html" id="barDemo">
+  <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<script src="{% static 'js/jquery-3.5.1.min.js' %}"></script>
+<script src="{% static 'layui/layui.js' %}"></script>
+<script>
+    // 入口函数
+    $(function () {
+        // ==============初始化表格入口================
+        initTable();
+        // ===============响应点击事件的按钮=============
+        buttonClick();
+  });
+    // ==============初始化表格================
+    function initTable() {
+        // 使用layui table插件
+        layui.use('table', function () {
+            // 实例化一个表格对象
+            let table = layui.table;
+
+            // 开始渲染表格
+            table.render({
+                elem: '#test11',
+                url: '{% url 'datatable' %}',   // 数据接口
+                method: 'get',
+                cellMinWidth: 80,
+                toolbar: true,
+                cols:[[
+                    {type: 'checkbox', fixed: 'left'},
+                    {field: 'filename', title: "文件名" , sort: true},
+                    {field: 'filetype', title: '文件类型', sort: true},
+                    {field: 'filesize', title: '文件大小', sort: true, width: 350},
+                    {field: 'modifitime', title: "最后一次修改时间", sort: true, width: 200},
+                    {fixed: 'right', title:'操作', width: 125, minWidth: 125, toolbar: '#barDemo'}
+                ]],
+                parseData:function (res) {
+                    // console.log(res);
+                    return{
+                        'code': 0 , //解析接口状态
+                        'msg': '',  //解析提示信息
+                        'count': res.count, // 解析数据长度
+                        'data': res.data
+                    }
+                },
+                text: '加载数据错误！！！', // 加载数据出错时的提示
+                page: true,
+                limit: 5,
+                limits: [5, 20, 50, 100],
+                done: function (res , current, count) {
+                    $('thead tr').css({'background-color': '#8E236B', 'color': 'white'})
+                }
+            });
+
+            // 侦听表格操作----> 点击按钮
+            table.on('tool(td_test)', function (obj) {
+                let oneLineData = obj.data;
+                // 通过按钮中的 lay-event='edit' 、 lay-event='del' 这个属性来区分操作的
+                if (obj.event === 'edit') {
+                    alert(oneLineData.name)
+                } else if (obj.event === 'del') {
+                    {#alert(oneLineData.filename)#}
+                    // 弹出层
+                    var $ = layui.jquery;
+
+                    layui.use('layer', function () {
+                        // 实例化一个弹出层对象
+                        let layer = layui.layer;
+                        document.getElementById('df_p').value = oneLineData.filename;
+                        // 展示弹出层
+                        layer.open({
+                            type: 1,  // 弹出层类型
+                            title: '删除文件',
+                            area: ['500px', '230px'],
+                            content: $("#delete_df"),
+                            btn: ['确定', '取消'],
+                            success: function (layero, index) {
+                                // layero 事件， index 索引
+                                console.log(layero, index)
+                            },
+                            yes:function (index, layero) {
+                                // 点击了确定按钮
+                                $.ajax({
+                                    url: '{% url 'del_f' %}',
+                                    type: 'post',
+                                    data: {
+                                        df_name: oneLineData.filename,
+                                        df_type:oneLineData.filetype,
+                                    },
+                                    dataType: 'json',
+                                    success: function (res) {
+                                        if (res.code === 1) {
+                                            alert(res.msg);
+                                            layer.close(index)
+                                            $(window).load(location.reload());
+                                        } else if (res.code === 2) {
+                                            alert(res.msg)
+                                            $(window).load(location.reload());
+                                        }
+                                    }
+                                })
+
+                            }
+                        })
+                    })
+                }
+            })
+        })
+    }
+    // ================点击按钮事件===============
+    function buttonClick() {
+        // ===========测试弹出层==============
+        $("#testopenlayer").on('click', function () {
+            // 弹出层
+            layui.use('layer', function () {
+                // 实例化一个弹出层对象
+                let layer = layui.layer;
+                // 展示弹出层
+                layer.open({
+                    type: 1,  // 弹出层类型
+                    title: '测试登录的弹出层',
+                    area: ['500px', '230px'],
+                    btn:['登录', '注册', '取消'],
+                    shade: [0.5, '#000000'], // 弹出层其它区域阴影
+                    shadeClose: true,   // 点击其它区域也会关闭弹出层
+                    // time: 3000
+                    anim: 0,
+                    resize: false,   // 弹出层大小可变，默认为true
+                    offset: 'auto',  // 弹出层页面的位置
+                    content: $("#layercontent"),
+
+                    // ==========弹出层的响应函数=============
+                    success:function (layero, index) {
+                        // layero 事件， index 索引
+                        console.log(layero, index)
+                    },
+
+                    /** yes:function (layero, index) {
+                        // 点击了登录按钮
+                        alert("点击了登录按钮！！！");
+                    }, **/
+
+                    btn1: function (layero, index) {
+                        // 点击登录按钮
+                        // alert("btn1也是第一个按钮！！")
+                        $.ajax({
+                            url: '{% url 'login' %}',
+                            type: 'post',
+                            data:{
+                                username1: $('#username').val(),
+                                pwd1: $('#pwd').val(),
+                                authencode1: $('#authcode').val()
+                            },
+                            dataType: 'json',
+                            success:function (res) {
+                                if (res.code === 1){
+                                    alert(res.msg);
+                                    layer.closeAll()
+                                }else if (res.code === 2){
+                                    alert(res.msg)
+                                }
+                            }
+                        })
+                    },
+                    btn2:function (layero, index) {
+                        // 点击了注册按钮
+                        alert("点击了注册按钮！！")
+                    },
+                    cancel: function (layero, index) {
+                        // 点击右上角“x” 按钮的响应事件
+                        alert("你点了“x”关闭了弹出层")
+                    },
+                    end:function (layero, index) {
+                        // 弹出层销毁后，自动执行的函数， 也就是说不管是点了关闭、还是取消 都执行，一般用于数据清理
+                        alert("弹出层关闭后执行的函数end")
+                    }
+
+                })
+            })
+        })
+    }
+</script>
+
+</html>
